@@ -1,4 +1,4 @@
-name: 备份最后一版armbian Bullseye镜像
+name: 备份mini armbian Bullseye镜像
 
 on:
   workflow_dispatch:
@@ -27,8 +27,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SRC_REPO="yifengyou/amlogic-s9xxx-armbian"
-          SRC_TAG="Armbian_bullseye_save_2025.01"
+          SRC_REPO="SergeyKa2021/amlogic-s9xxx-armbian"
+          SRC_TAG="Armbian_bullseye_save_2024.03"
 
           # 先按 tag 取 release id
           REL_ID=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
@@ -88,10 +88,10 @@ jobs:
           set -euo pipefail
 
           # 确保 release 存在
-          gh release view backup_latest_bullseye -R "$REPO" >/dev/null 2>&1 || \
-            gh release create backup_latest_bullseye -R "$REPO" \
+          gh release view backup_mini_bullseye -R "$REPO" >/dev/null 2>&1 || \
+            gh release create backup_mini_bullseye -R "$REPO" \
               --title "Backup Armbian_bullseye_save_2025.01 (amlogic *.img.gz)" \
-              --notes "自动备份自 yifengyou/amlogic-s9xxx-armbian 的 Armbian_bullseye_save_2025.01"
+              --notes "自动备份自 SergeyKa2021/amlogic-s9xxx-armbian 的 Armbian_bullseye_save_2024.03"
 
           mkdir -p downloads
           total=0
@@ -113,7 +113,7 @@ jobs:
               continue
             fi
             echo "=== [$total] 上传: $(basename "$f") ==="
-            if gh release upload backup_latest_bullseye "$f" -R "$REPO" --clobber; then
+            if gh release upload backup_mini_bullseye "$f" -R "$REPO" --clobber; then
               ok=$((ok+1))
             else
               echo "上传失败，保留文件待查: $f" >&2
