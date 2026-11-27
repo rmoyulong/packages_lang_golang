@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           SRC_REPO="yifengyou/amlogic-s9xxx-armbian"
-          SRC_TAG="bullseye_save_2025.01"
+          SRC_TAG="Armbian_bullseye_save_2025.01"
 
           # 用 GitHub API 分页拉取该 release 的全部 assets
           urls=""
