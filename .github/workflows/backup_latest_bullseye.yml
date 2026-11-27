@@ -27,8 +27,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SRC_REPO="Vector-Cross/amlogic-s905d-armbian"
-          SRC_TAG="Armbian_bullseye_save_2024.08"
+          SRC_REPO="nxwgzs/amlogic-s9xxx-armbian"
+          SRC_TAG="Armbian_bullseye_save_2025.07"
 
           # 先按 tag 取 release id
           REL_ID=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
