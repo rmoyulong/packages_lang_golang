@@ -1,0 +1,86 @@
+name: Backup Latest Bullseye Images
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0'   # 每周日 18:00 UTC（可选，不需要可删）
+  push:
+    paths:
+      - '.github/workflows/backup_latest_bullseye.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: 获取上游所有 .img.gz 下载链接
+        id: get_urls
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SRC_REPO="yifengyou/amlogic-s9xxx-armbian"
+          SRC_TAG="bullseye_save_2025.01"
+
+          # 用 GitHub API 分页拉取该 release 的全部 assets
+          urls=""
+          page=1
+          while :; do
+            resp=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/${SRC_REPO}/releases/tags/${SRC_TAG}?page=${page}&per_page=100")
+            # releases/tags 接口不分页，这里直接取 assets 数组
+            cnt=$(echo "$resp" | jq '.assets | length')
+            [ "$cnt" -eq 0 ] && break
+            urls=$(echo "$resp" | jq -r '.assets[] | select(.name | test("\\.img\\.gz$")) | .browser_download_url')
+            break
+          done
+
+          if [ -z "$urls" ]; then
+            echo "未找到任何 .img.gz 资产" >&2
+            exit 1
+          fi
+
+          echo "找到以下文件："
+          echo "$urls"
+          {
+            echo "urls<<EOF"
+            echo "$urls"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 下载所有 .img.gz
+        run: |
+          set -euo pipefail
+          mkdir -p downloads
+          cd downloads
+          while IFS= read -r u; do
+            [ -z "$u" ] && continue
+            echo "下载: $u"
+            curl -L --retry 3 --retry-delay 5 -o "$(basename "$u")" "$u"
+          done <<< "${{ steps.get_urls.outputs.urls }}"
+          ls -lh
+
+      - name: 创建或更新 release 并上传资产
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: backup_latest_bullseye
+          name: Backup bullseye_save_2025.01 (all .img.gz)
+          body: |
+            自动备份自 `yifengyou/amlogic-s9xxx-armbian` 的 `bullseye_save_2025.01` tag。
+            包含该 release 下所有 `*.img.gz` 资产。
+            构建时间：${{ github.run_id }}
+          files: downloads/*.img.gz
+          fail_on_unmatched_files: true
+          overwrite_files: true   # 同名资产覆盖（需 action-gh-release v2 支持）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
