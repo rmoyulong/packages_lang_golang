@@ -27,8 +27,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SRC_REPO="TanLocLouis/amlogic-s9xxx-armbian"
-          SRC_TAG="Armbian_bullseye_save_2025.04"
+          SRC_REPO="wsfnk/amlogic-s9xxx-armbian"
+          SRC_TAG="Armbian_bullseye_save_2025.06"
 
           # 先按 tag 取 release id
           REL_ID=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
@@ -48,7 +48,7 @@ jobs:
             n=$(echo "$page_json" | jq 'length')
             [ "$n" -eq 0 ] && break
             part=$(echo "$page_json" \
-              | jq -r '.[] | select(.name | test("amlogic_s905x_bullseye_6.1.*\\.img\\.gz$"; "i")) | .browser_download_url')
+              | jq -r '.[] | select(.name | test("amlogic_s905.*_bullseye_6.1.*\\.img\\.gz$"; "i")) | .browser_download_url')
             [ -n "$part" ] && urls+="${part}"$'\n'
             page=$((page+1))
           done
