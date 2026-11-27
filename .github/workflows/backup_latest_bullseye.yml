@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           SRC_REPO="Vector-Cross/amlogic-s905d-armbian"
-          SRC_TAG="Armbian_bullseye_save"
+          SRC_TAG="Armbian_bullseye_save_2025.09"
 
           # 先按 tag 取 release id
           REL_ID=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
