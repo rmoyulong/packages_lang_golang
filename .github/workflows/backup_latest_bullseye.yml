@@ -1,9 +1,7 @@
-name: Backup Latest Bullseye Images
+name: 备份最后一版armbian Bullseye镜像
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 18 * * 0'   # 每周日 18:00 UTC（可选，不需要可删）
   push:
     paths:
       - '.github/workflows/backup_latest_bullseye.yml'
@@ -23,7 +21,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq curl
 
-      - name: 获取上游所有 .img.gz 下载链接
+      - name: 获取上游所有含 amlogic 的 .img.gz 下载链接
         id: get_urls
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,25 +30,38 @@ jobs:
           SRC_REPO="yifengyou/amlogic-s9xxx-armbian"
           SRC_TAG="Armbian_bullseye_save_2025.01"
 
-          # 用 GitHub API 分页拉取该 release 的全部 assets
-          urls=""
-          page=1
-          while :; do
-            resp=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
-              "https://api.github.com/repos/${SRC_REPO}/releases/tags/${SRC_TAG}?page=${page}&per_page=100")
-            # releases/tags 接口不分页，这里直接取 assets 数组
-            cnt=$(echo "$resp" | jq '.assets | length')
-            [ "$cnt" -eq 0 ] && break
-            urls=$(echo "$resp" | jq -r '.assets[] | select(.name | test("\\.img\\.gz$")) | .browser_download_url')
-            break
-          done
-
-          if [ -z "$urls" ]; then
-            echo "未找到任何 .img.gz 资产" >&2
+          # 先按 tag 取 release id
+          REL_ID=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${SRC_REPO}/releases/tags/${SRC_TAG}" \
+            | jq -r '.id // empty')
+          if [ -z "$REL_ID" ]; then
+            echo "未找到 tag ${SRC_TAG} 对应的 release" >&2
             exit 1
           fi
 
-          echo "找到以下文件："
+          # 分页拉取全部 assets，筛出名字含 amlogic 且以 .img.gz 结尾的
+          #方案 C：还想只留 s905 系（排除 s905x/s912 等）
+          #select(.name | test("^Armbian_.*_amlogic_s905(_|_).*bullseye.*\\.img\\.gz$"; "i"))
+          urls=""
+          page=1
+          while :; do
+            page_json=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/${SRC_REPO}/releases/${REL_ID}/assets?per_page=100&page=${page}")
+            n=$(echo "$page_json" | jq 'length')
+            [ "$n" -eq 0 ] && break
+            part=$(echo "$page_json" \
+              | jq -r '.[] | select(.name | test("^Armbian_.*_amlogic_.*_bullseye_.*\\.img\\.gz$"; "i"))
+            [ -n "$part" ] && urls+="${part}"$'\n'
+            page=$((page+1))
+          done
+          urls=$(printf '%s' "$urls" | sed '/^$/d')
+
+          if [ -z "$urls" ]; then
+            echo "未找到任何含 amlogic 的 .img.gz 资产" >&2
+            exit 1
+          fi
+
+          echo "匹配到以下文件："
           echo "$urls"
           {
             echo "urls<<EOF"
@@ -58,7 +69,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: 下载所有 .img.gz
+      - name: 下载筛选后的 .img.gz
         run: |
           set -euo pipefail
           mkdir -p downloads
@@ -68,19 +79,20 @@ jobs:
             echo "下载: $u"
             curl -L --retry 3 --retry-delay 5 -o "$(basename "$u")" "$u"
           done <<< "${{ steps.get_urls.outputs.urls }}"
+          echo "---- 下载结果 ----"
           ls -lh
 
       - name: 创建或更新 release 并上传资产
         uses: softprops/action-gh-release@v2
         with:
           tag_name: backup_latest_bullseye
-          name: Backup bullseye_save_2025.01 (all .img.gz)
+          name: Backup bullseye_save_2025.01 (amlogic *.img.gz)
           body: |
             自动备份自 `yifengyou/amlogic-s9xxx-armbian` 的 `bullseye_save_2025.01` tag。
-            包含该 release 下所有 `*.img.gz` 资产。
-            构建时间：${{ github.run_id }}
+            仅包含文件名含 `amlogic` 的 `*.img.gz` 资产。
+            运行 ID：${{ github.run_id }}
           files: downloads/*.img.gz
           fail_on_unmatched_files: true
-          overwrite_files: true   # 同名资产覆盖（需 action-gh-release v2 支持）
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
