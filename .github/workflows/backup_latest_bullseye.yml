@@ -40,8 +40,6 @@ jobs:
           fi
 
           # 分页拉取全部 assets，筛出名字含 amlogic 且以 .img.gz 结尾的
-          #方案 C：还想只留 s905 系（排除 s905x/s912 等）
-          #select(.name | test("^Armbian_.*_amlogic_s905(_|_).*bullseye.*\\.img\\.gz$"; "i"))
           urls=""
           page=1
           while :; do
@@ -50,7 +48,7 @@ jobs:
             n=$(echo "$page_json" | jq 'length')
             [ "$n" -eq 0 ] && break
             part=$(echo "$page_json" \
-              | jq -r '.[] | select(.name | test("^Armbian_.*_amlogic_.*_bullseye_.*\\.img\\.gz$"; "i")) | .browser_download_url')
+              | jq -r '.[] | select(.name | test("amlogic.*\\.img\\.gz$"; "i")) | .browser_download_url')
             [ -n "$part" ] && urls+="${part}"$'\n'
             page=$((page+1))
           done
@@ -81,7 +79,7 @@ jobs:
           done <<< "${{ steps.get_urls.outputs.urls }}"
           echo "---- 下载结果 ----"
           ls -lh
-
+        
       - name: 逐文件下载并上传（串行，避免并发/磁盘问题）
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,9 +126,4 @@ jobs:
           if [ "$ok" -eq 0 ]; then
             echo "没有任何文件成功上传" >&2
             exit 1
-          fi
-          files: downloads/*.img.gz
-          fail_on_unmatched_files: true
-          overwrite_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fi          
