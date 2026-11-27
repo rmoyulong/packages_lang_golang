@@ -82,15 +82,53 @@ jobs:
           echo "---- 下载结果 ----"
           ls -lh
 
-      - name: 创建或更新 release 并上传资产
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: backup_latest_bullseye
-          name: Backup bullseye_save_2025.01 (amlogic *.img.gz)
-          body: |
-            自动备份自 `yifengyou/amlogic-s9xxx-armbian` 的 `bullseye_save_2025.01` tag。
-            仅包含文件名含 `amlogic` 的 `*.img.gz` 资产。
-            运行 ID：${{ github.run_id }}
+      - name: 逐文件下载并上传（串行，避免并发/磁盘问题）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # 确保 release 存在
+          gh release view backup_latest_bullseye -R "$REPO" >/dev/null 2>&1 || \
+            gh release create backup_latest_bullseye -R "$REPO" \
+              --title "Backup Armbian_bullseye_save_2025.01 (amlogic *.img.gz)" \
+              --notes "自动备份自 yifengyou/amlogic-s9xxx-armbian 的 Armbian_bullseye_save_2025.01"
+
+          mkdir -p downloads
+          total=0
+          ok=0
+          while IFS= read -r u; do
+            [ -z "$u" ] && continue
+            total=$((total+1))
+            f="downloads/$(basename "$u")"
+            echo "=== [$total] 下载: $(basename "$u") ==="
+            if ! curl -L --retry 5 --retry-delay 10 --retry-all-errors -C - -o "$f" "$u"; then
+              echo "下载失败，跳过: $u" >&2
+              rm -f "$f"
+              continue
+            fi
+            # 简单完整性检查：gzip 头
+            if ! gzip -t "$f" 2>/dev/null; then
+              echo "文件损坏，跳过: $f" >&2
+              rm -f "$f"
+              continue
+            fi
+            echo "=== [$total] 上传: $(basename "$f") ==="
+            if gh release upload backup_latest_bullseye "$f" -R "$REPO" --clobber; then
+              ok=$((ok+1))
+            else
+              echo "上传失败，保留文件待查: $f" >&2
+              continue
+            fi
+            rm -f "$f"
+          done <<< "${{ steps.get_urls.outputs.urls }}"
+
+          echo "完成：成功 ${ok}/${total}"
+          if [ "$ok" -eq 0 ]; then
+            echo "没有任何文件成功上传" >&2
+            exit 1
+          fi
           files: downloads/*.img.gz
           fail_on_unmatched_files: true
           overwrite_files: true
