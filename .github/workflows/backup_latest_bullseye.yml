@@ -27,8 +27,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SRC_REPO="Woiui/amlogic-s9xxx-armbian"
-          SRC_TAG="Armbian_bullseye_save_2024.02"
+          SRC_REPO="Vector-Cross/amlogic-s905d-armbian"
+          SRC_TAG="Armbian_bullseye_save"
 
           # 先按 tag 取 release id
           REL_ID=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
@@ -48,7 +48,7 @@ jobs:
             n=$(echo "$page_json" | jq 'length')
             [ "$n" -eq 0 ] && break
             part=$(echo "$page_json" \
-              | jq -r '.[] | select(.name | test("amlogic_s905.*\\.img\\.gz$"; "i")) | .browser_download_url')
+              | jq -r '.[] | select(.name | test("amlogic_s905d_bullseye_6.1.*\\.img\\.gz$"; "i")) | .browser_download_url')
             [ -n "$part" ] && urls+="${part}"$'\n'
             page=$((page+1))
           done
@@ -90,7 +90,7 @@ jobs:
           # 确保 release 存在
           gh release view backup_mini_bullseye -R "$REPO" >/dev/null 2>&1 || \
             gh release create backup_mini_bullseye -R "$REPO" \
-              --title "Backup Armbian_bullseye_save_2025.01 (amlogic *.img.gz)" \
+              --title "Backup Armbian_bullseye_save_2024.08-2025-9 (amlogic *.img.gz)" \
               --notes "自动备份自 SergeyKa2021/amlogic-s9xxx-armbian 的 Armbian_bullseye_save_2024.03"
 
           mkdir -p downloads
