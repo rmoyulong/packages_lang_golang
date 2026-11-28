@@ -48,7 +48,7 @@ jobs:
             n=$(echo "$page_json" | jq 'length')
             [ "$n" -eq 0 ] && break
             part=$(echo "$page_json" \
-              | jq -r '.[] | select(.name | test("amlogic_s905.*_bullseye_6.1.3.*\\.img\\.gz$"; "i")) | .browser_download_url')
+              | jq -r '.[] | select(.name | test("amlogic_s905.*_bullseye_6.1.38_server_2023.07.16.*\\.img\\.gz$"; "i")) | .browser_download_url')
             [ -n "$part" ] && urls+="${part}"$'\n'
             page=$((page+1))
           done
@@ -89,8 +89,8 @@ jobs:
 
           # 确保 release 存在
           gh release view backup_mini_bullseye -R "$REPO" >/dev/null 2>&1 || \
-            gh release create backup_oldbullseye -R "$REPO" \
-              --title "Backup Armbian_bullseye_save_2023-7 (amlogic *.img.gz)" \
+            gh release create backup_old_bullseye -R "$REPO" \
+              --title "Backup Armbian_bullseye_save_2023.07 (amlogic *.img.gz)" \
               --notes "自动备份自 SergeyKa2021/amlogic-s9xxx-armbian 的 Armbian_bullseye_save_2024.03"
 
           mkdir -p downloads
